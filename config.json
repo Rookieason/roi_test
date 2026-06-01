@@ -1,0 +1,31 @@
+{
+    "Name": "test",
+    "Description": "",
+    "num_rx": 8,
+    "num_tx": 2,
+    "num_subcarriers": 2025,
+    "antenna_order": [0, 1, 2, 3, 4, 5, 6, 7],
+    "preprocessing_setting":{
+        "type": "GRY",
+        "window_size": 24
+    }, 
+    "heatmap_setting": {
+        "num_antenna": 8,
+        "num_subcarriers": 2025,
+        "steering_vector_size": [20, 6, 8],
+        "subcarrier_idx_spacing": 100,
+        "antenna_idx_spacing": 1,
+        "sample_idx_spacing": 1,
+        "bandwidth": 160e6,
+        "center_frequency": 5.57e9,
+        "antenna_spacing": 0.015,
+        "fs": 100,
+        "phi_deg_axis_param": [-90, 90, 2],
+        "theta_deg_axis_param": [-90, 90, 2],
+        "tau_axis_param": [0.05, 6.5, 0.05],
+        "f_axis_param": [-30, 30, 2]        
+    },
+    "heatmap_generation":{
+        
+    }
+}

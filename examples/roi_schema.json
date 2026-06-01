@@ -1,0 +1,36 @@
+{
+  "frames": [
+    [
+      {
+        "roi_id": "roi_001",
+        "timestamp": 0.0,
+        "center_world": [1.0, 1.2, 2.0],
+        "bbox_min_world": [0.8, 1.0, 1.8],
+        "bbox_max_world": [1.2, 1.4, 2.2],
+        "visibility": 0.7,
+        "in_frustum": true,
+        "occlusion_score": 0.2,
+        "base_features": {
+          "distance_from_gaze_center": 0.3,
+          "previous_roi_score": 0.5
+        }
+      }
+    ],
+    [
+      {
+        "roi_id": "roi_001",
+        "timestamp": 1.0,
+        "center_world": [1.0, 1.2, 2.0],
+        "bbox_min_world": [0.8, 1.0, 1.8],
+        "bbox_max_world": [1.2, 1.4, 2.2],
+        "visibility": 0.6,
+        "in_frustum": true,
+        "occlusion_score": 0.3,
+        "base_features": {
+          "distance_from_gaze_center": 0.25,
+          "previous_roi_score": 0.6
+        }
+      }
+    ]
+  ]
+}

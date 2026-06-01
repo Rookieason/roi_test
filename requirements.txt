@@ -1,0 +1,18 @@
+# Minimal requirements for roi_selection (Phase 1)
+# Use NumPy < 2 to remain compatible with compiled SciPy/other extensions
+numpy<2
+scipy>=1.10,<2
+matplotlib>=3.5
+pillow
+plotly
+pandas
+tqdm
+scikit-image
+# PyTorch is required by utilsforheatmap (used for some GPU ops);
+# install a matching build for your CUDA or CPU environment, e.g.:
+# pip install torch             # CPU-only (may pick latest)
+# or follow https://pytorch.org for CUDA builds
+torch
+
+# Optional / helpful for interactive work
+ipython

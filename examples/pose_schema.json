@@ -1,0 +1,14 @@
+{
+  "poses": [
+    {
+      "timestamp": 0.0,
+      "position_world": [0.0, 1.6, 0.0],
+      "quaternion_xyzw": [0.0, 0.0, 0.0, 1.0]
+    },
+    {
+      "timestamp": 1.0,
+      "position_world": [0.0, 1.6, 0.1],
+      "quaternion_xyzw": [0.0, 0.0, 0.0, 1.0]
+    }
+  ]
+}
