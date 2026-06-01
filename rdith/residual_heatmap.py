@@ -221,6 +221,26 @@ def compute_residual_motion_cells(
     return residual_frames
 
 
+def filter_residual_motion_cells(
+    residual_motion_cells: list[list[dict[str, Any]]],
+    min_residual_energy: float = 0.0,
+    min_residual_scale: float = 0.2,
+) -> list[list[dict[str, Any]]]:
+    """Keep only cells that remain meaningfully unexplained after 6DoF filtering."""
+
+    filtered: list[list[dict[str, Any]]] = []
+    for records in residual_motion_cells:
+        frame_records = []
+        for record in records:
+            energy = float(record.get("energy", 0.0))
+            residual_energy = float(record.get("residual_energy", 0.0))
+            scale = residual_energy / max(energy, 1e-12)
+            if residual_energy > min_residual_energy and scale >= min_residual_scale:
+                frame_records.append(record)
+        filtered.append(frame_records)
+    return filtered
+
+
 def build_residual_heatmap(
     heatmap_result: dict,
     residual_motion_cells: list[list[dict[str, Any]]],

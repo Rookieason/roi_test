@@ -36,21 +36,21 @@ class CandidateROI:
 @dataclass
 class RFBlob:
     blob_id: int
-    frame_idx: int
-    timestamp: float
+    frame_idx: int = 0
+    timestamp: float = 0.0
 
-    centroid_grid: tuple[float, float]   # (tau_idx, fd_idx), for visualization
-    bbox_grid: tuple[int, int, int, int] # (tau_min, fd_min, tau_max, fd_max)
+    centroid_grid: tuple[float, float] = (0.0, 0.0)   # (tau_idx, fd_idx), for visualization
+    bbox_grid: tuple[int, int, int, int] = (0, 0, 0, 0) # (tau_min, fd_min, tau_max, fd_max)
 
-    centroid_world: np.ndarray
-    velocity_world: Optional[np.ndarray]
-    energy: float
-    residual_energy: float
-    doppler_mean_hz: float
-    doppler_bandwidth_hz: float
-    doppler_entropy: float
-    confidence: float
-    num_supporting_cells: int
+    centroid_world: np.ndarray = field(default_factory=lambda: np.zeros(3, dtype=float))
+    velocity_world: Optional[np.ndarray] = None
+    energy: float = 0.0
+    residual_energy: float = 0.0
+    doppler_mean_hz: float = 0.0
+    doppler_bandwidth_hz: float = 0.0
+    doppler_entropy: float = 0.0
+    confidence: float = 0.0
+    num_supporting_cells: int = 0
     lifetime: int = 1
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -128,4 +128,3 @@ def quat_xyzw_to_matrix(quaternion_xyzw: np.ndarray) -> np.ndarray:
         ],
         dtype=float,
     )
-

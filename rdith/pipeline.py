@@ -20,6 +20,7 @@ from .residual_heatmap import (
     compute_residual_motion_cells,
     estimate_rf_velocity,
     extract_active_heatmap_cells,
+    filter_residual_motion_cells,
     map_heatmap_cells_to_world,
 )
 from .roi_features import compute_global_intent_features, merge_features_for_ml, rf_roi_align
@@ -67,7 +68,11 @@ def run_rdith_pipeline(
     active_cells = extract_active_heatmap_cells(heatmap, **config.get("active_cell_config", {}))
     cell_map = map_heatmap_cells_to_world(heatmap, calibration)
     rf_motion_cells = estimate_rf_velocity(active_cells, cell_map, heatmap, calibration)
-    residual_cells = compute_residual_motion_cells(rf_motion_cells, kinematics, calibration)
+    residual_cells_all = compute_residual_motion_cells(rf_motion_cells, kinematics, calibration)
+    residual_cells = filter_residual_motion_cells(
+        residual_cells_all,
+        **config.get("residual_cell_config", {}),
+    )
     residual_heatmap = build_residual_heatmap(heatmap, residual_cells, output_mode="sparse")
     blobs = extract_rf_blobs(residual_heatmap, **config.get("blob_config", {}))
     tracked_blobs = track_rf_blobs(blobs, **config.get("tracking_config", {}))

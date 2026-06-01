@@ -34,12 +34,17 @@ def compute_scalar_residual_doppler(
     expected_fd = expected_doppler_from_velocity(point_world, expected_6dof_velocity_world, link, wavelength_m, mode)
     residual_fd = float(measured_fd_hz) - expected_fd
     residual_radial_velocity = residual_fd * wavelength_m / (2.0 if mode == "monostatic" else 1.0)
+    measured_abs = abs(float(measured_fd_hz))
+    # This is a dimensionless keep-ratio for suppressive residual heatmaps.
+    # 0 means the measured Doppler is fully explained by 6DoF; 1 means the
+    # observed Doppler is largely unexplained.  It must not carry Hz units.
+    residual_energy_scale = float(np.clip(abs(residual_fd) / max(measured_abs, 1e-12), 0.0, 1.0))
     return {
         "measured_fd_hz": float(measured_fd_hz),
         "expected_fd_hz": expected_fd,
         "residual_fd_hz": residual_fd,
         "residual_radial_velocity_mps": float(residual_radial_velocity),
-        "residual_energy_scale": abs(residual_fd),
+        "residual_energy_scale": residual_energy_scale,
     }
 
 
@@ -81,4 +86,3 @@ def estimate_full_velocity_from_multilink_doppler(
 def _unit(value: np.ndarray) -> np.ndarray:
     norm = float(np.linalg.norm(value))
     return np.asarray(value, dtype=float) / norm if norm > 1e-12 else np.zeros_like(value, dtype=float)
-
