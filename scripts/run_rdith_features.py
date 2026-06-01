@@ -18,9 +18,11 @@ def main() -> None:
     parser.add_argument("--heatmap_type", default="AoA-ToF-Doppler", choices=["ToF-Doppler", "AoA-ToF-Doppler"])
     parser.add_argument("--no_export_progress_summary", action="store_true")
     parser.add_argument("--save_intermediate_dir", default=None)
+    parser.add_argument("--quiet", action="store_true", help="Suppress RDITH diagnostic prints.")
     args = parser.parse_args()
     params = vars(args)
     params["export_progress_summary"] = not params.pop("no_export_progress_summary")
+    params["verbose"] = not params.pop("quiet")
     run_rdith_pipeline(**params)
 
 
