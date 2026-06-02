@@ -29,7 +29,7 @@
         "geometry_mode": "bistatic_txrx",
         "tx_rx_baseline_m": 0.30,
         "tx_offset_rf": [0.0, 0.0, 0.0],
-        "rx_offset_rf": [-0.30, 0.0, 0.0]
+        "rx_offset_rf": [0.30, 0.0, 0.0]
     },
     "heatmap_generation":{
         
