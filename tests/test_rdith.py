@@ -125,6 +125,22 @@ class RDITHTests(unittest.TestCase):
         self.assertEqual(ml["X"].shape[0], 2)
         self.assertIn("rf_residual_energy", ml["feature_names"])
 
+    def test_dense_residual_uses_tof_doppler_fd_index(self):
+        heatmap = self._heatmap()
+        residual = [
+            [
+                {
+                    "cell_index": (1, -1, 2),
+                    "residual_energy": 9.0,
+                }
+            ],
+            [],
+        ]
+        dense = build_residual_heatmap(heatmap, residual, output_mode="dense")
+        spectrum = dense["spectrum"]
+        self.assertEqual(spectrum[0, 1, 2], 9.0)
+        self.assertEqual(spectrum[0, 1, 1], 0.0)
+
     def test_doppler_statistics(self):
         bandwidth = compute_micro_doppler_bandwidth(np.array([-1.0, 1.0]), np.array([1.0, 1.0]))
         entropy = compute_doppler_entropy(np.array([-1.0, 1.0]), np.array([1.0, 1.0]), num_bins=2)

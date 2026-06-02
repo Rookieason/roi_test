@@ -99,6 +99,7 @@ def run_rdith_pipeline(
         residual_cells_all,
         **config.get("residual_cell_config", {}),
     )
+    _print_active_residual_difference(active_cells, residual_cells, residual_cells_all)
     if verbose:
         _print_filter_diagnostics(residual_cells_all, residual_cells, config.get("residual_cell_config", {}))
         _print_residual_diagnostics("residual after filtering", residual_cells)
@@ -454,6 +455,61 @@ def _frame_lengths(frames: list) -> np.ndarray:
 
 def _flatten_records(frames: list[list[dict]]) -> list[dict]:
     return [record for frame in frames for record in frame]
+
+
+def _print_active_residual_difference(
+    active_cells: list[np.ndarray],
+    residual_cells: list[list[dict]],
+    residual_cells_all: list[list[dict]],
+) -> None:
+    active_by_key: dict[tuple[int, int, int, int], float] = {}
+    for fallback_frame_idx, frame_cells in enumerate(active_cells):
+        for row in np.asarray(frame_cells):
+            frame_idx = int(row[0]) if row.size > 0 else fallback_frame_idx
+            tau_idx = int(row[1])
+            theta_idx = int(row[2])
+            fd_idx = int(row[3])
+            active_by_key[(frame_idx, tau_idx, theta_idx, fd_idx)] = float(row[4])
+
+    residual_by_key: dict[tuple[int, int, int, int], float] = {}
+    for fallback_frame_idx, records in enumerate(residual_cells):
+        for record in records:
+            tau_idx, theta_idx, fd_idx = record["cell_index"]
+            frame_idx = int(record.get("frame_idx", fallback_frame_idx))
+            residual_by_key[(frame_idx, int(tau_idx), int(theta_idx), int(fd_idx))] = float(record.get("residual_energy", 0.0))
+
+    active_values = np.asarray(list(active_by_key.values()), dtype=float)
+    residual_values = np.asarray([residual_by_key.get(key, 0.0) for key in active_by_key], dtype=float)
+    diff = residual_values - active_values
+    scales = []
+    for records in residual_cells_all:
+        for record in records:
+            energy = float(record.get("energy", 0.0))
+            scales.append(float(record.get("residual_energy", 0.0)) / max(energy, 1e-12))
+    scales_arr = np.asarray(scales, dtype=float)
+
+    print("\n[RDITH] active vs residual heatmap difference")
+    print(f"  active_cells: {len(active_by_key)}")
+    print(f"  residual_cells_after_filter: {len(residual_by_key)}")
+    if active_values.size == 0:
+        print("  diff: no active cells to compare")
+        return
+    close_count = int(np.isclose(active_values, residual_values, rtol=1e-6, atol=1e-9).sum())
+    print(f"  active_energy_sum: {float(active_values.sum())}")
+    print(f"  residual_energy_sum_on_active_grid: {float(residual_values.sum())}")
+    print(f"  diff_residual_minus_active_sum: {float(diff.sum())}")
+    print(f"  diff_abs_mean: {float(np.mean(np.abs(diff)))}")
+    print(f"  diff_abs_max: {float(np.max(np.abs(diff)))}")
+    print(f"  equal_energy_cells: {close_count}/{active_values.size}")
+    if scales_arr.size:
+        print(
+            "  residual_scale_before_filter: "
+            f"min={float(np.min(scales_arr))} "
+            f"p50={float(np.percentile(scales_arr, 50))} "
+            f"mean={float(np.mean(scales_arr))} "
+            f"p95={float(np.percentile(scales_arr, 95))} "
+            f"max={float(np.max(scales_arr))}"
+        )
 
 
 def _print_cell_count_diagnostics(label: str, cells: list) -> None:

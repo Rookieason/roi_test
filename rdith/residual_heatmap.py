@@ -255,7 +255,9 @@ def build_residual_heatmap(
     for frame_idx, records in enumerate(residual_motion_cells):
         for record in records:
             cell_index = record["cell_index"]
-            tau_idx, theta_idx, fd_idx = cell_index[-3], cell_index[-2], cell_index[-1]
+            tau_idx = int(cell_index[0])
+            theta_idx = int(cell_index[1]) if len(cell_index) > 2 else -1
+            fd_idx = int(cell_index[-1])
             if dense.ndim == 3:
                 dense[frame_idx, tau_idx, fd_idx] = record["residual_energy"]
             else:
