@@ -1,6 +1,6 @@
 {
-  "note": "Optional RDITH world-frame alignment only. This is NOT antenna geometry and not an extra runtime sensing input. Antenna count, antenna spacing, subcarrier axes, and steering vectors remain owned by config.json + the existing heatmap generator.",
-  "geometry_mode": "monostatic_aoa",
+  "note": "Optional RDITH world-frame alignment plus Tx/Rx baseline. Antenna count, antenna spacing, subcarrier axes, and steering vectors remain owned by config.json + the existing heatmap generator.",
+  "geometry_mode": "bistatic_txrx",
   "coordinate_convention": "world: x-right, y-up, z-forward",
   "rf_origin_world": [0.0, 1.2, 0.0],
   "rf_rotation_world_from_rf": [
@@ -8,6 +8,9 @@
     [0.0, 1.0, 0.0],
     [0.0, 0.0, 1.0]
   ],
-  "tof_range_scale": 149896229.0,
+  "tx_rx_baseline_m": 0.3,
+  "tx_offset_rf": [0.0, 0.0, 0.0],
+  "rx_offset_rf": [-0.3, 0.0, 0.0],
+  "tof_range_scale": 299792458.0,
   "range_offset_m": 0.0
 }

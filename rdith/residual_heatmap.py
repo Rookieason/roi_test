@@ -138,6 +138,7 @@ def estimate_rf_velocity(
     calibration: dict,
 ) -> list[list[dict[str, Any]]]:
     wavelength = _wavelength(calibration, heatmap_result)
+    doppler_scale = _doppler_velocity_scale(calibration)
     axis_order = tuple(cell_map.get("axis_order", ()))
     out: list[list[dict[str, Any]]] = []
     for frame_cells in active_cells:
@@ -148,7 +149,7 @@ def estimate_rf_velocity(
             position = cell_map["cell_positions_world"][map_idx]
             geometry_conf = float(cell_map["cell_geometry_confidence"][map_idx])
             link_id = cell_map.get("cell_link_ids", ["link_0"])[map_idx]
-            radial_velocity = float(fd_value) * wavelength / 2.0
+            radial_velocity = float(fd_value) * wavelength / doppler_scale
             records.append(
                 {
                     "frame_idx": int(frame_idx),
@@ -281,6 +282,11 @@ def _wavelength(calibration: dict | RDITHCalibration, heatmap_result: dict) -> f
     if center is None:
         raise ValueError("center_frequency or wavelength is required for Doppler velocity")
     return LIGHT_SPEED / float(center)
+
+
+def _doppler_velocity_scale(calibration: dict | RDITHCalibration) -> float:
+    mode = calibration.geometry_mode if isinstance(calibration, RDITHCalibration) else calibration.get("geometry_mode")
+    return 1.0 if mode in {"bistatic_txrx", "multi_link_bistatic"} else 2.0
 
 
 def _direction_from_theta(theta_deg: float, calibration: dict) -> np.ndarray:

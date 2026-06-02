@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 import numpy as np
 
 from rdith.blob_extraction import compute_doppler_entropy, compute_micro_doppler_bandwidth, extract_rf_blobs
-from rdith.calibration import RFLinkCalibration, load_rdith_calibration
+from rdith.calibration import LIGHT_SPEED, RFLinkCalibration, load_rdith_calibration
 from rdith.data_types import CandidateROI, Pose6DoF
 from rdith.doppler_residual import compute_scalar_residual_doppler
 from rdith.pipeline import run_rdith_pipeline
@@ -167,6 +167,46 @@ class RDITHTests(unittest.TestCase):
         )
         self.assertAlmostEqual(result["expected_fd_hz"], 4.0)
         self.assertAlmostEqual(result["residual_fd_hz"], 6.0)
+
+    def test_bistatic_txrx_calibration_from_config(self):
+        calibration = load_rdith_calibration(
+            config={
+                "heatmap_setting": {"center_frequency": 5.57e9},
+                "rdith_calibration": {
+                    "geometry_mode": "bistatic_txrx",
+                    "tx_rx_baseline_m": 0.30,
+                    "tx_offset_rf": [0.0, 0.0, 0.0],
+                    "rx_offset_rf": [-0.30, 0.0, 0.0],
+                },
+            }
+        )
+        self.assertEqual(calibration.geometry_mode, "bistatic_txrx")
+        self.assertTrue(np.allclose(calibration.links[0].tx_position_world, [0.0, 0.0, 0.0]))
+        self.assertTrue(np.allclose(calibration.links[0].rx_position_world, [-0.30, 0.0, 0.0]))
+        self.assertAlmostEqual(calibration.tof_range_scale, LIGHT_SPEED)
+
+    def test_bistatic_doppler_residual_uses_tx_and_rx_rays(self):
+        link = RFLinkCalibration(
+            link_id="link_0",
+            tx_position_world=np.array([0.0, 0.0, 0.0]),
+            rx_position_world=np.array([-0.30, 0.0, 0.0]),
+            tx_rotation_world_from_rf=None,
+            rx_rotation_world_from_rf=None,
+            center_frequency_hz=1.0,
+            wavelength_m=0.5,
+        )
+        point = np.array([-0.30, 0.0, 1.0])
+        result = compute_scalar_residual_doppler(
+            measured_fd_hz=10.0,
+            point_world=point,
+            expected_6dof_velocity_world=np.array([0.0, 0.0, 1.0]),
+            link=link,
+            wavelength_m=0.5,
+            mode="bistatic",
+        )
+        tx_ray_z = 1.0 / np.sqrt(1.0 + 0.30**2)
+        self.assertAlmostEqual(result["expected_fd_hz"], (tx_ray_z + 1.0) / 0.5)
+        self.assertNotAlmostEqual(result["expected_fd_hz"], 4.0)
 
     def test_vector_residual_not_used_with_one_link(self):
         heatmap = self._heatmap()

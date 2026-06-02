@@ -25,6 +25,12 @@
         "tau_axis_param": [0.05, 6.5, 0.05],
         "f_axis_param": [-30, 30, 2]        
     },
+    "rdith_calibration": {
+        "geometry_mode": "bistatic_txrx",
+        "tx_rx_baseline_m": 0.30,
+        "tx_offset_rf": [0.0, 0.0, 0.0],
+        "rx_offset_rf": [-0.30, 0.0, 0.0]
+    },
     "heatmap_generation":{
         
     }

@@ -29,7 +29,7 @@ import numpy as np
 
 
 LIGHT_SPEED = 299792458.0
-GEOMETRY_MODES = {"tof_only_pseudo", "monostatic_aoa"}
+GEOMETRY_MODES = {"tof_only_pseudo", "monostatic_aoa", "bistatic_txrx", "multi_link_bistatic"}
 
 
 @dataclass
@@ -58,6 +58,8 @@ class RDITHCalibration:
     geometry_mode: str
     rf_origin_world: np.ndarray
     rf_rotation_world_from_rf: np.ndarray
+    tx_position_world: np.ndarray
+    rx_position_world: np.ndarray
     center_frequency_hz: float
     wavelength_m: float
     tof_range_scale: float
@@ -67,13 +69,12 @@ class RDITHCalibration:
 
     @property
     def links(self) -> list[RFLinkCalibration]:
-        # Virtual single link.  This is not new antenna data; it is a convenient
-        # monostatic representation of the completed heatmap coordinate frame.
+        # Single effective link for the completed heatmap coordinate frame.
         return [
             RFLinkCalibration(
                 link_id="heatmap_origin",
-                tx_position_world=self.rf_origin_world,
-                rx_position_world=self.rf_origin_world,
+                tx_position_world=self.tx_position_world,
+                rx_position_world=self.rx_position_world,
                 tx_rotation_world_from_rf=self.rf_rotation_world_from_rf,
                 rx_rotation_world_from_rf=self.rf_rotation_world_from_rf,
                 center_frequency_hz=self.center_frequency_hz,
@@ -138,8 +139,6 @@ def load_rdith_calibration(
     theta_axis_present = heatmap_result is not None and heatmap_result.get("theta_deg_axis") is not None
     mode = raw.get("geometry_mode") or ("monostatic_aoa" if theta_axis_present else "tof_only_pseudo")
     if mode not in GEOMETRY_MODES:
-        # Do not support explicit bistatic/multi-link here because that would
-        # reintroduce geometry RDITH should not own in this project.
         raise ValueError(f"geometry_mode must be one of {sorted(GEOMETRY_MODES)}")
 
     rf_origin = np.asarray(raw.get("rf_origin_world", [0.0, 0.0, 0.0]), dtype=float)
@@ -149,13 +148,26 @@ def load_rdith_calibration(
     if rf_rot.shape != (3, 3):
         raise ValueError("rf_rotation_world_from_rf must be a 3x3 matrix")
 
+    tx_position = _position_from_raw(raw, "tx", rf_origin, rf_rot)
+    rx_position = _position_from_raw(raw, "rx", rf_origin, rf_rot)
+    baseline = raw.get("tx_rx_baseline_m", raw.get("baseline_m"))
+    if baseline is not None and "tx_position_world" not in raw and "rx_position_world" not in raw:
+        # Default convention: the RF origin is the Tx array center; +x is array
+        # right in RF coordinates, so an Rx array physically left of Tx is -x.
+        tx_position = rf_origin + rf_rot @ np.array(raw.get("tx_offset_rf", [0.0, 0.0, 0.0]), dtype=float)
+        rx_position = rf_origin + rf_rot @ np.array(raw.get("rx_offset_rf", [-float(baseline), 0.0, 0.0]), dtype=float)
+
+    default_tof_scale = LIGHT_SPEED if mode in {"bistatic_txrx", "multi_link_bistatic"} else LIGHT_SPEED / 2.0
+
     return RDITHCalibration(
         geometry_mode=str(mode),
         rf_origin_world=rf_origin,
         rf_rotation_world_from_rf=rf_rot,
+        tx_position_world=tx_position,
+        rx_position_world=rx_position,
         center_frequency_hz=float(center),
         wavelength_m=float(wavelength),
-        tof_range_scale=float(raw.get("tof_range_scale", LIGHT_SPEED / 2.0)),
+        tof_range_scale=float(raw.get("tof_range_scale", default_tof_scale)),
         range_offset_m=float(raw.get("range_offset_m", 0.0)),
         coordinate_convention=str(raw.get("coordinate_convention", "world: x-right, y-up, z-forward")),
         confidence=float(raw.get("confidence", 1.0)),
@@ -171,6 +183,8 @@ def calibration_to_dict(calibration: RDITHCalibration | dict) -> dict:
         "wavelength": calibration.wavelength_m,
         "rf_origin_world": calibration.rf_origin_world.tolist(),
         "rf_rotation_world_from_rf": calibration.rf_rotation_world_from_rf.tolist(),
+        "tx_position_world": calibration.tx_position_world.tolist(),
+        "rx_position_world": calibration.rx_position_world.tolist(),
         "tof_range_scale": calibration.tof_range_scale,
         "range_offset_m": calibration.range_offset_m,
         "coordinate_convention": calibration.coordinate_convention,
@@ -185,15 +199,24 @@ def heatmap_cell_to_world_candidates(
     link: RFLinkCalibration,
     calibration: RDITHCalibration,
 ) -> list[dict]:
-    range_m = float(tau_s) * calibration.tof_range_scale + calibration.range_offset_m
+    path_length_m = float(tau_s) * calibration.tof_range_scale + calibration.range_offset_m
     if calibration.geometry_mode == "tof_only_pseudo" or theta_deg is None or not np.isfinite(theta_deg):
-        pos = calibration.rf_origin_world + calibration.rf_rotation_world_from_rf @ np.array([0.0, 0.0, range_m])
+        if calibration.geometry_mode in {"bistatic_txrx", "multi_link_bistatic"}:
+            direction_world = _unit(calibration.rf_rotation_world_from_rf @ np.array([0.0, 0.0, 1.0]))
+            range_m = _bistatic_ray_range(path_length_m, direction_world, link.tx_position_world, link.rx_position_world)
+            pos = link.rx_position_world + direction_world * range_m
+            return [{"position_world": pos, "confidence": 0.2 * calibration.confidence, "geometry_mode": "bistatic_tof_pseudo"}]
+        pos = calibration.rf_origin_world + calibration.rf_rotation_world_from_rf @ np.array([0.0, 0.0, path_length_m])
         return [{"position_world": pos, "confidence": 0.25 * calibration.confidence, "geometry_mode": "tof_only_pseudo"}]
 
     elev = 0.0 if phi_deg is None or not np.isfinite(phi_deg) else float(phi_deg)
     direction_rf = _direction_from_angles(float(theta_deg), elev)
     direction_world = _unit(calibration.rf_rotation_world_from_rf @ direction_rf)
-    pos = calibration.rf_origin_world + direction_world * range_m
+    if calibration.geometry_mode in {"bistatic_txrx", "multi_link_bistatic"}:
+        range_m = _bistatic_ray_range(path_length_m, direction_world, link.tx_position_world, link.rx_position_world)
+        pos = link.rx_position_world + direction_world * range_m
+        return [{"position_world": pos, "confidence": calibration.confidence, "geometry_mode": "bistatic_txrx"}]
+    pos = calibration.rf_origin_world + direction_world * path_length_m
     return [{"position_world": pos, "confidence": calibration.confidence, "geometry_mode": "monostatic_aoa"}]
 
 
@@ -214,6 +237,30 @@ def _first_present(raw: dict, names: list[str], fallback: Any = None) -> Any:
         if name in raw and raw[name] is not None:
             return raw[name]
     return fallback
+
+
+def _position_from_raw(raw: dict, prefix: str, rf_origin: np.ndarray, rf_rot: np.ndarray) -> np.ndarray:
+    world_key = f"{prefix}_position_world"
+    offset_key = f"{prefix}_offset_rf"
+    if world_key in raw:
+        pos = np.asarray(raw[world_key], dtype=float)
+    else:
+        pos = rf_origin + rf_rot @ np.asarray(raw.get(offset_key, [0.0, 0.0, 0.0]), dtype=float)
+    if pos.shape != (3,):
+        raise ValueError(f"{world_key}/{offset_key} must be a length-3 vector")
+    return pos
+
+
+def _bistatic_ray_range(path_length_m: float, direction_world: np.ndarray, tx_position_world: np.ndarray, rx_position_world: np.ndarray) -> float:
+    total_path = float(path_length_m)
+    baseline = np.asarray(rx_position_world, dtype=float) - np.asarray(tx_position_world, dtype=float)
+    baseline_len = float(np.linalg.norm(baseline))
+    if total_path <= baseline_len:
+        return 0.0
+    denom = 2.0 * (total_path + float(np.dot(direction_world, baseline)))
+    if abs(denom) < 1e-12:
+        return 0.0
+    return max(0.0, (total_path * total_path - baseline_len * baseline_len) / denom)
 
 
 def _direction_from_angles(theta_deg: float, phi_deg: float) -> np.ndarray:
